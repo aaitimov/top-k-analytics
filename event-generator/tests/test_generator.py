@@ -5,7 +5,7 @@ from uuid import UUID
 
 from freezegun import freeze_time
 
-from generator import SongPlayEvent, SongPlayEventGenerator
+from app.generator import SongPlayEvent, SongPlayEventGenerator
 
 
 def test_generate_event_fields():
@@ -16,10 +16,10 @@ def test_generate_event_fields():
         event_ts=datetime(2025, 7, 30, 1, 10),
     )
 
-    with patch("generator.uuid4", return_value=expected.event_id), patch(
-        "generator.np.random.zipf", return_value=expected.song_id
+    with patch("app.generator.uuid4", return_value=expected.event_id), patch(
+        "app.generator.np.random.zipf", return_value=expected.song_id
     ), patch(
-        "generator.np.random.uniform", return_value=expected.duration
+        "app.generator.np.random.uniform", return_value=expected.duration
     ), freeze_time(
         expected.event_ts
     ):

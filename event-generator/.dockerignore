@@ -1,0 +1,29 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+*.eggs/
+*.log
+.env
+.venv/
+venv/
+.envrc
+.cache/
+dist/
+build/
+.mypy_cache/
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+*.sqlite3
+__snapshots__/
+
+# Git
+.git/
+.gitignore
+
+# IDEs
+.vscode/
+.idea/
