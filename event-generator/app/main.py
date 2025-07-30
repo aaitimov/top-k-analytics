@@ -8,7 +8,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from confluent_kafka import Producer
 
-from generator import SongPlayEventGenerator
+from app.generator import SongPlayEventGenerator
 
 logging.basicConfig(level=logging.INFO, format="[%(threadName)s] %(message)s")
 
