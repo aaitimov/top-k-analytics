@@ -32,15 +32,17 @@ def produce_events():
     kafka_conf = {
         "bootstrap.servers": kafka_bootstrap_servers,
         "client.id": socket.gethostname(),
+        "compression.type": "snappy",
     }
 
     producer = Producer(kafka_conf)
 
-    batch_size = 10_000
-    sleep_ms = 50
+    batch_size = int(os.getenv("BATCH_SIZE", "1000"))
 
     try:
         event_generator = SongPlayEventGenerator(100_000)
+
+        logging.info("Starting to produce events.")
 
         while not shutdown_event.is_set():
             for _ in range(batch_size):
@@ -50,11 +52,12 @@ def produce_events():
                 except BufferError as e:
                     logging.error(f"Buffer full: {e}")
                     producer.poll(1)
-            
-            logging.info(f"Produced {batch_size} events")
-            time.sleep(sleep_ms / 1000)
+            producer.poll(0)
+            time.sleep(1)
     finally:
         producer.flush()
+
+        logging.info(f"Stopped producing events.")
 
 
 def main():
@@ -64,16 +67,14 @@ def main():
     producer_threads = int(os.getenv("PRODUCER_THREADS", "4"))
 
     with ThreadPoolExecutor(max_workers=producer_threads) as pool:
-        futures = [
-            pool.submit(produce_events)
-            for _ in range(producer_threads)
-        ]
+        futures = [pool.submit(produce_events) for _ in range(producer_threads)]
 
         for future in futures:
             try:
                 future.result()
             except Exception as e:
                 logging.exception(f"Worker thread failed: {e}")
+
 
 if __name__ == "__main__":
     main()
