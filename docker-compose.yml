@@ -19,6 +19,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
+
   kafka-init:
     image: bitnami/kafka:4.0.0
     depends_on:
@@ -60,6 +62,36 @@ services:
       KAFKA_BROKERCONNECT: "kafka:9092"
       JVM_OPTS: "-Xms32M -Xmx128M"
       SERVER_SERVLET_CONTEXTPATH: "/"
+    restart: unless-stopped
+  
+  stream-processor-jobmanager:
+    build:
+      context: ./stream-processor
+    ports:
+      - "18081:8081"
+    command: "standalone-job --pyFiles /app -pym app.main"
+    environment:
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: stream-processor-jobmanager
+        parallelism.default: 2
+      - KAFKA_TOPIC=song-play-events
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+    restart: unless-stopped
+
+  stream-processor-taskmanager:
+    build:
+      context: ./stream-processor
+    depends_on:
+      - stream-processor-jobmanager
+    command: taskmanager
+    scale: 1
+    environment:
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: stream-processor-jobmanager
+        taskmanager.numberOfTaskSlots: 2
+        parallelism.default: 2
     restart: unless-stopped
 
 volumes:
