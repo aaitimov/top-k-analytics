@@ -9,11 +9,11 @@ class SongPlayEvent(BaseModel):
     event_id: UUID = Field(default_factory=uuid4)
     song_id: int
     duration: float
-    event_ts: datetime = Field(default_factory=datetime.utcnow)
+    event_ts: datetime = Field(default_factory=datetime.now)
 
     @field_serializer("event_ts", when_used="json")
     def datetime_to_isoformat(self, timestamp: datetime) -> str:
-        return timestamp.isoformat()
+        return timestamp.isoformat(timespec="milliseconds")
 
 
 class SongPlayEventGenerator:

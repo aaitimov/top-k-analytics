@@ -64,19 +64,51 @@ services:
       SERVER_SERVLET_CONTEXTPATH: "/"
     restart: unless-stopped
   
+  datamart:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: flink
+      POSTGRES_PASSWORD: flink
+      POSTGRES_DB: datamart
+    ports:
+      - "15432:5432"
+    volumes:
+      - datamart-data:/var/lib/postgresql/data
+      - ./datamart/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U flink -d datamart"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   stream-processor-jobmanager:
     build:
       context: ./stream-processor
     ports:
       - "18081:8081"
     command: "standalone-job --pyFiles /app -pym app.main"
+    depends_on:
+      kafka:
+        condition: service_healthy
+      datamart:
+        condition: service_healthy
+    volumes:
+      - flink-checkpoints-jobmanager:/flink-checkpoints
     environment:
       - |
         FLINK_PROPERTIES=
         jobmanager.rpc.address: stream-processor-jobmanager
         parallelism.default: 2
+        state.backend: rocksdb
+        state.checkpoints.dir: file:///flink-checkpoints
       - KAFKA_TOPIC=song-play-events
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - DB_HOST=datamart
+      - DB_PORT=5432
+      - DB_SCHEMA=datamart
+      - DB_USER=flink
+      - DB_PASSWORD=flink
     restart: unless-stopped
 
   stream-processor-taskmanager:
@@ -86,13 +118,20 @@ services:
       - stream-processor-jobmanager
     command: taskmanager
     scale: 1
+    volumes:
+      - flink-checkpoints-taskmanager:/flink-checkpoints
     environment:
       - |
         FLINK_PROPERTIES=
         jobmanager.rpc.address: stream-processor-jobmanager
         taskmanager.numberOfTaskSlots: 2
         parallelism.default: 2
+        state.backend: rocksdb
+        state.checkpoints.dir: file:///flink-checkpoints
     restart: unless-stopped
 
 volumes:
   kafka-data:
+  datamart-data:
+  flink-checkpoints-jobmanager:
+  flink-checkpoints-taskmanager:
