@@ -1,61 +1,80 @@
-import os
+from pydantic_settings import BaseSettings
+from pyflink.table import EnvironmentSettings, TableEnvironment
 
-from pyflink.table import (
-    EnvironmentSettings, TableEnvironment
-)
+
+class AppSettings(BaseSettings):
+    kafka_bootstrap_servers: str
+    kafka_topic: str
+    db_host: str
+    db_port: int
+    db_schema: str
+    db_user: str
+    db_password: str
 
 
 def main():
-    kafka_bootstrap_servers = os.getenv("KAFKA_BOOTSTRAP_SERVERS")
-    kafka_topic = os.getenv("KAFKA_TOPIC")
-
-    if kafka_bootstrap_servers is None:
-        raise ValueError("Kafka bootstrap servers parameter is required")
-    if kafka_topic is None:
-        raise ValueError("Kafka topic parameter is required")
+    app_settings = AppSettings()  # pyright: ignore[reportCallIssue]
 
     env_settings = EnvironmentSettings.in_streaming_mode()
     t_env = TableEnvironment.create(env_settings)
-    t_env.execute_sql(f"""
-    CREATE TABLE song_plays (
-        event_id STRING,
-        song_id INT,
-        duration DOUBLE,
-        event_ts STRING,
-        event_time AS TO_TIMESTAMP(event_ts, 'yyyy-MM-dd''T''HH:mm:ss.SSS'),
-        WATERMARK FOR event_time AS event_time - INTERVAL '5' MINUTES
-    ) WITH (
-        'connector' = 'kafka',
-        'topic' = '{kafka_topic}',
-        'properties.bootstrap.servers' = '{kafka_bootstrap_servers}',
-        'properties.group.id' = 'pyflink-sql-consumer',
-        'scan.startup.mode' = 'earliest-offset',
-        'format' = 'json',
-        'json.ignore-parse-errors' = 'true'
-    )
-    """)
 
-    result = t_env.sql_query("""
-    WITH daily_counts AS (
-        SELECT
-            TUMBLE_START(event_time, INTERVAL '1' DAY) AS play_day,
-            song_id,
-            COUNT(*) AS play_count
-        FROM song_plays
-        GROUP BY
-            TUMBLE(event_time, INTERVAL '1' DAY),
-            song_id
-    ),
-    ranked AS (
-        SELECT
-            *,
-            ROW_NUMBER() OVER (PARTITION BY play_day ORDER BY play_count DESC) AS rownum
-        FROM daily_counts
+    t_env.execute_sql(
+        f"""
+        create table song_plays (
+          event_id string,
+          song_id int,
+          duration double,
+          event_ts string,
+          event_time AS to_timestamp(event_ts, 'yyyy-MM-dd''T''HH:mm:ss.SSS'),
+          watermark for event_time as event_time - interval '1' minute
+        ) with (
+          'connector' = 'kafka',
+          'topic' = '{app_settings.kafka_topic}',
+          'properties.bootstrap.servers' = '{app_settings.kafka_bootstrap_servers}',
+          'properties.group.id' = 'pyflink-sql-consumer',
+          'scan.startup.mode' = 'earliest-offset',
+          'format' = 'json',
+          'json.ignore-parse-errors' = 'true'
+        )
+        """
     )
-    SELECT play_day, song_id, play_count
-    FROM ranked
-    WHERE rownum <= 100""")
-    result.execute().print()
+
+    jdbc_url = (
+        f"jdbc:postgresql://"
+        f"{app_settings.db_host}:{app_settings.db_port}/{app_settings.db_schema}"
+    )
+    t_env.execute_sql(
+        f"""
+        create table song_play_agg (
+          window_start timestamp,
+          window_end timestamp,
+          song_id bigint,
+          play_count bigint,
+          primary key (window_start, song_id) not enforced
+        ) with (
+          'connector' = 'jdbc',
+          'url' = '{jdbc_url}',
+          'table-name' = 'song_play_agg',
+          'username' = '{app_settings.db_user}',
+          'password' = '{app_settings.db_password}',
+          'driver' = 'org.postgresql.Driver'
+        )
+        """
+    )
+
+    result = t_env.sql_query(
+        """
+        select
+          tumble_start(event_time, interval '5' minutes) as window_start,
+          tumble_end(event_time, interval '5' minutes) as window_end,
+          song_id,
+          count(*) as play_count
+        from song_plays
+        group by
+          tumble(event_time, interval '5' minutes),
+          song_id"""
+    )
+    result.execute_insert("song_play_agg")
 
 
 if __name__ == "__main__":
