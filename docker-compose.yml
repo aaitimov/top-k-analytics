@@ -75,6 +75,7 @@ services:
       - "15432:5432"
     volumes:
       - datamart-data:/var/lib/postgresql/data
+      - ./datamart/init.sql:/docker-entrypoint-initdb.d/init.sql
 
   stream-processor-jobmanager:
     build:
