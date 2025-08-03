@@ -22,7 +22,7 @@ def main():
         song_id INT,
         duration DOUBLE,
         event_ts STRING,
-        event_time AS TO_TIMESTAMP(SUBSTRING(event_ts FROM 1 FOR 23), 'yyyy-MM-dd''T''HH:mm:ss.SSS'),
+        event_time AS TO_TIMESTAMP(event_ts, 'yyyy-MM-dd''T''HH:mm:ss.SSS'),
         WATERMARK FOR event_time AS event_time - INTERVAL '5' MINUTES
     ) WITH (
         'connector' = 'kafka',
