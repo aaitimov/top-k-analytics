@@ -1,9 +1,11 @@
-# Top-K Analytics
+# 🎧 Top-K Analytics
 
-This project simulates a real-time analytics pipeline that computes and visualizes the top-K most played songs.
+This project simulates a real-time analytics pipeline that computes and visualizes the top-K most played songs over a custom period (e.g., last 24 hours, last 7 days, last month).
 
-## Components
+While originally inspired by the *“Design Spotify Top K Songs”* system design problem, the concept generalizes to any top-K use case, such as most viewed videos, most read articles, or most purchased products.
 
-- **event-generator/**: Produces dummy song playback events into a Kafka topic.
-- **stream-processor/**: A Flink app that consumes playback events, aggregates them, enriches them with metadata, and stores results in a database.
-- **dashboard/**: Contains Superset dashboards or setup instructions for visualizing top-K results.
+## 📦 Components
+
+- **`event-generator/`** – Produces synthetic song play events and streams them into a Kafka topic.
+- **`stream-processor/`** – A PyFlink application that consumes, aggregates, and stores results in a PostgreSQL-based datamart.
+- **`dashboard/`** – *[TODO]* A Metabase dashboard to visualize top-K songs over a user-defined time range.
