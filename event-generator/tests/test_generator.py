@@ -26,7 +26,7 @@ def test_generate_event_fields():
         generator = SongPlayEventGenerator(num_songs=100_000)
         actual = generator.generate()
 
-        assert expected == actual
+        assert actual == expected
 
 
 def test_event_is_serializable_to_json():
@@ -46,4 +46,4 @@ def test_event_is_serializable_to_json():
 
     actual = json.loads(event.model_dump_json())
 
-    assert expected == actual
+    assert actual == expected
